@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
+  <types:catalog>
+    <types:type name="users" format="json">
+      <types:shape format="weave" example="examples/users.json"><![CDATA[%dw 2.0
+
+type users = Array<{|  username: String,   fullname: String,   age: Number {"typeId": "int"},   gender: String,   dateRegistered: String|}> {"example": "[{\"username\":\"john123\",\"fullname\":\"John White Smith\",\"age\":23,\"gender\":\"male\",\"dateRegistered\":\"20-08-2012\"},{\"username\":\"jackpeters\",\"fullname\":\"Jack Peters\",\"age\":25,\"gender\":\"male\",\"dateRegistered\":\"25-09-2014\"}]"}
+
+]]></types:shape>
+    </types:type>
+  </types:catalog>
+  <types:enrichment select="#564da041-6acb-425c-b1ba-44da7f0789b8">
+    <types:processor-declaration>
+      <types:output-event>
+        <types:message>
+          <types:payload type="users"/>
+        </types:message>
+      </types:output-event>
+    </types:processor-declaration>
+  </types:enrichment>
+  <types:enrichment select="#986f6443-a47d-414e-a8e4-d39332aaa70f">
+    <types:processor-declaration>
+      <types:output-event>
+        <types:message>
+          <types:payload type="users"/>
+        </types:message>
+      </types:output-event>
+    </types:processor-declaration>
+  </types:enrichment>
+  <types:enrichment select="#c1e9336a-7223-4e3a-b13e-2caaa796d0bc">
+    <types:processor-declaration>
+      <types:output-event>
+        <types:message>
+          <types:payload type="users"/>
+        </types:message>
+      </types:output-event>
+    </types:processor-declaration>
+  </types:enrichment>
+</types:mule>

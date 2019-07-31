@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ffefe27f-03b3-4a0c-bb44-60c53e15f6f8" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="ba63cd72-4d9a-462e-860f-5b3b181fe847" >
+		<db:mssql-connection host="localhost" user="Mulesoft" password="mulesoft" databaseName="Mulesoft" />
+	</db:config>
+	<flow name="getUser" doc:id="cdfc8d54-af33-47fd-8319-0ed04c85d3eb" >
+		<http:listener doc:name="Listener" doc:id="fe0d4f1d-a6d1-4eeb-b752-4dcceadd342e" config-ref="HTTP_Listener_config" path="/getUser/{username}"/>
+		<choice doc:name="Header code correct?" doc:id="be414bbe-d0a1-4871-a47d-74c5436feb45" >
+			<when expression="#[attributes.headers['code'] != 'j32io33ise4k2qq1']" >
+				<raise-error doc:name="Invalid header" doc:id="ca7f8cf5-8dab-44b7-bac9-a61acd57e68e" type="SECURITY:INVALID_HEADER" description="Header code is invalid"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Before database call" doc:id="9e3f6fc4-501b-423d-a841-b84a22c5ae6d" message="Accessing database ..."/>
+				<db:select doc:name="Get user" doc:id="5046f88b-1ea0-475c-82b8-2b7f3c1f35a3" config-ref="Database_Config">
+					<db:sql >SELECT det.Username,
+             det.FullName,
+	         det.Birthday,
+	         det.Gender,
+	         acc.DateRegistered
+  FROM Account AS acc,
+             AccountDetail AS det
+WHERE acc.ID = det.ID
+    AND det.username = :username
+    AND acc.Active = 1;</db:sql>
+					<db:input-parameters ><![CDATA[#['username': attributes.uriParams.username]]]></db:input-parameters>
+				</db:select>
+				<logger level="INFO" doc:name="After database call" doc:id="a9e065e9-fcde-418a-b3aa-8d16a0102088" message="Leaving database ..."/>
+				<choice doc:name="Record found?" doc:id="75865760-aa7c-4145-a4fd-619df4b745fb">
+					<when expression="#[payload.Username == null]">
+						<raise-error doc:name="No data" doc:id="b954cd30-424c-403c-9e25-a267ba67f2c4" type="DATA:NO_DATA" description="No match found"/>
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Build response" doc:id="c1e9336a-7223-4e3a-b13e-2caaa796d0bc">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) ->
+{
+	username: payload01.Username,
+	fullname: payload01.FullName,
+	age: now().year - payload01.Birthday.year default 0,
+	gender: if (payload01.Gender == "M") "male" else "female",
+	dateRegistered: payload01.DateRegistered as String
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="getUsers" doc:id="f60302d3-48e0-4e51-bd1c-12c7849163eb" >
+		<http:listener doc:name="Listener" doc:id="3300d7a5-cb6a-4119-bb78-ead76f28b7f1" config-ref="HTTP_Listener_config" path="/getUsers"/>
+		<choice doc:name="Header code correct?" doc:id="2a8269f4-d4af-4c73-8508-688ea4d62a40" >
+			<when expression="#[attributes.headers['code'] != 'j32io33ise4k2qq1']">
+				<raise-error doc:name="Invalid header" doc:id="5ec3a498-63ac-41bb-b441-47c9f21fdf3a" type="SECURITY:INVALID_HEADER" description="Header code is invalid"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Before database call" doc:id="61b0e951-0c3d-4033-a18a-a2e1accea3d0" message="Accessing database ..."/>
+				<db:select doc:name="Get users" doc:id="7db7841e-eaf7-4eb2-96fd-fd57c9b190c1" config-ref="Database_Config" >
+					<db:sql >SELECT det.Username,
+             det.FullName,
+	         DATEDIFF(YEAR, det.Birthday, GETDATE()) AS Age,
+	         IIF(det.Gender = 'M', 'Male', 'Female') AS Gender,
+	         acc.DateRegistered
+  FROM Account AS acc,
+             AccountDetail AS det
+WHERE acc.ID = det.AccountID
+    AND acc.Active = 1;</db:sql>
+				</db:select>
+				<logger level="INFO" doc:name="After database call" doc:id="c62b64c7-c6e8-479c-860f-24fc5c73e8fb" message="Leaving database ..."/>
+				<choice doc:name="Records found?" doc:id="0e04ee3e-72b2-44ab-9d5f-5ac937488adb" >
+					<when expression="#[payload[0].Username == null]">
+						<raise-error doc:name="No data" doc:id="40d17661-02a0-4602-9ff5-70a7fde96b42" type="DATA:NO_DATA" description="Database is empty"/>
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Transform Message" doc:id="564da041-6acb-425c-b1ba-44da7f0789b8">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) ->
+{
+	username: payload01.Username,
+	fullname: payload01.FullName,
+	age: payload01.Age default 0,
+	gender: payload01.Gender,
+	dateRegistered: payload01.DateRegistered as String
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="createUser" doc:id="f1873b65-164d-4986-8bc5-271c9b0d4eb9" >
+		<http:listener doc:name="Listener" doc:id="fb9d7dbc-3e6b-41e0-95e7-98b0aaa3ee32" config-ref="HTTP_Listener_config" path="/createUser"/>
+		<choice doc:name="Header code correct?" doc:id="216ef1cd-ff82-4fb6-8b04-3112d48d1485" >
+			<when expression="#[attributes.headers['code'] != 'j32io33ise4k2qq1']">
+				<raise-error doc:name="Invalid header" doc:id="8b79990f-d8c5-499f-b539-791bf2893436" type="SECURITY:INVALID_HEADER" description="Header code is invalid"/>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="User record" doc:id="5860dd39-b4de-47a8-ae96-be52e73d1ebb">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"username": "mars123",
+	"fullname": "Enrique Marcella",
+	"birthday": "03-13-1972",
+	"gender": "male",
+	"dateRegistered": "07-30-2019"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<logger level="INFO" doc:name="Before database call" doc:id="d4fb0bb3-93bf-4920-a04b-e643bf62f690" message="Accessing database ..." />
+				<db:insert doc:name="Insert user" doc:id="880c3b85-841b-4829-b025-656d03e482cc" config-ref="Database_Config">
+			<db:sql>INSERT INTO Account
+VALUES (:dateRegistered, 1);
+
+INSERT INTO AccountDetail
+VALUES (@@IDENTITY, :username, :fullname, :birthday, :gender);</db:sql>
+			<db:input-parameters><![CDATA[#[%dw 2.0
+---
+{
+	'username': payload.username, 
+ 	'fullname': payload.fullname, 
+ 	'birthday': payload.birthday, 
+ 	'gender': if (payload.gender == "male") "M" else "F",
+ 	'dateRegistered': payload.dateRegistered
+}]]]></db:input-parameters>
+		</db:insert>
+				<logger level="INFO" doc:name="After database call" doc:id="3b4c0f60-a62a-484f-8ab0-dcc5ef01a694" message="Leaving database ..." />
+			</otherwise>
+		</choice>
+		<set-payload value="User created" doc:name="Build response" doc:id="da30b190-6b3a-476c-9848-8a1e0839adc0" />
+	</flow>
+	<flow name="createUsers" doc:id="b2c4c7f9-4904-46c2-9dd5-982be8fc700d" >
+		<http:listener doc:name="Listener" doc:id="5951c189-f188-46d9-a57d-62ccefeb24d0" config-ref="HTTP_Listener_config" path="/createUsers"/>
+		<choice doc:name="Header code correct?" doc:id="fdd6d95a-3cde-4b04-bd97-d0be9142943a" >
+			<when expression="#[attributes.headers['code'] != 'j32io33ise4k2qq1']">
+				<raise-error doc:name="Invalid header" doc:id="8b099589-b575-4b0d-b3a5-230f60e195de" type="SECURITY:INVALID_HEADER" description="Header code is invalid"/>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="User records" doc:id="38f438f3-b8fa-4102-8cb7-a5131ae580f5">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+[
+	{
+    	"username": "john123",
+    	"fullname": "John White Smith",
+    	"birthday": "05-02-1990",
+    	"gender": "male",
+    	"dateRegistered": "08-20-2012"
+  	},
+  	{
+    	"username": "jackpeters",
+    	"fullname": "Jack Peters",
+    	"birthday": "06-11-1985",
+    	"gender": "male",
+    	"dateRegistered": "09-25-2014"
+  	},
+   	{
+    	"username": "jenniesummers",
+    	"fullname": "Jennie Summers",
+    	"birthday": "11-12-1979",
+    	"gender": "female",
+    	"dateRegistered": "08-20-2013"
+  	}
+]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<set-variable value="#[0]" doc:name="Create total records counter" doc:id="73cc62fe-b9f7-4bc4-90be-e2fada059322" variableName="ctrTotalRecords"/>
+				<set-variable value="#[0]" doc:name="Create successfully inserted counter" doc:id="7f39afec-898b-4a3d-915b-ffc8ff788c2c" variableName="ctrSuccessfullyInserted" />
+				<foreach doc:name="For Each" doc:id="b93708bb-522c-4c92-be48-952126e1d801" collection="#[payload]" counterVariableName="ctr">
+					<flow-ref doc:name="perUserInsert" doc:id="185b6598-afe4-42d2-a4e9-fda6e612b17a" name="perUserInsert"/>
+		</foreach>
+			</otherwise>
+		</choice>
+		<set-payload value='#[vars.ctrSuccessfullyInserted ++ " of " ++ vars.ctrTotalRecords ++ " records inserted"]' doc:name="Build response" doc:id="48b3ef0a-13ae-43a6-989e-7a1ab63548e3" />
+	</flow>
+	<flow name="perUserInsert" doc:id="20871ee3-31b0-497e-8992-b2caea28710c" >
+		<set-variable value="#[vars.ctrTotalRecords + 1]" doc:name="Increment total records counter" doc:id="a8b4718e-f213-42cc-b9b2-1a969e3bc9dd" variableName="ctrTotalRecords"/>
+		<choice doc:name="Fields complete?" doc:id="8b40361a-c9a1-4b5b-a717-ed3d9f6ed77a" >
+			<when expression='#[payload.username == "" or payload.fullname == "" or payload.birthday == "" or payload.gender == "" or payload.dateRegistered == ""]'>
+				<logger level="INFO" doc:name="Missing fields" doc:id="eb4099b0-9a77-469f-adf1-d0b521fd35fb" message='#["Record " ++ vars.ctrTotalRecords ++ " missing one or more fields"]'/>
+				<raise-error doc:name="Incomplete data" doc:id="448e41e0-c08a-4874-8388-24c9748f0657" type="DATA:BAD_REQUEST" description="All five fields are required"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Before database call" doc:id="e848f1ec-738a-427e-9afb-bc6512ddbc44" message='#["Record " ++ vars.ctrTotalRecords ++ " to be inserted ..."]'/>
+				<db:insert doc:name="Insert user" doc:id="2fb120b6-aa71-439c-a747-c921f1a72649" config-ref="Database_Config">
+					<db:sql >INSERT INTO Account
+VALUES (:dateRegistered, 1);
+
+INSERT INTO AccountDetail
+VALUES (@@IDENTITY, :username, :fullname, :birthday, :gender);</db:sql>
+					<db:parameter-types />
+					<db:input-parameters ><![CDATA[#[%dw 2.0
+---
+{
+	'username': payload.username, 
+ 	'fullname': payload.fullname, 
+ 	'birthday': payload.birthday, 
+ 	'gender': if (payload.gender == "male") "M" else "F",
+ 	'dateRegistered': payload.dateRegistered
+}]]]></db:input-parameters>
+				</db:insert>
+				<logger level="INFO" doc:name="After database call" doc:id="84cbb73d-45d0-485e-99de-1c029e0653d1" message='#["Record " ++ vars.ctrTotalRecords ++ " successfully inserted"]'/>
+				<set-variable value="#[vars.ctrSuccessfullyInserted + 1]" doc:name="Increment successfully inserted counter" doc:id="f8a9fce3-8b4e-4926-a978-74ba1b664089" variableName="ctrSuccessfullyInserted"/>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="8d343f2b-0fdb-417a-88bd-0305269d8240" type="DATA:BAD_REQUEST"/>
+		</error-handler>
+	</flow>
+</mule>

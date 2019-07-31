@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+	<munit:config name="new-test-suite.xml" />
+	<munit:test name="getUserTest" description="Test" doc:id="0c001c26-f908-4594-9384-03723d52e9d7" >
+		<munit:execution >
+			<munit:set-event doc:name="Set Event" doc:id="104d8168-d660-444f-abc7-c5b7e14986bd" >
+				<munit:payload mediaType="application/avro" />
+				<munit:attributes value="#[{headers: {'code':'j32io33ise4k2qq1'}, uriParams : {'username' :'john123'}}]" />
+			</munit:set-event>
+			<flow-ref doc:name="Flow-ref to getUser" doc:id="86599e0c-2c5d-4677-b104-740a6d4d3c33" name="getUser"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert-that doc:name="Assert that" doc:id="d1e27330-48b8-444a-ad2e-cb17c8675102" expression="#[payload]" is="#[MunitTools::notNullValue()]" message='"Record found"'/>
+		</munit:validation>
+	</munit:test>
+
+
+</mule>
